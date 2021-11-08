@@ -13,6 +13,15 @@
 #define TWC_REG (4)
 #define TWAM_REG (5)
 
+#Bit Offsets
+#define TWIE_offset (0)  //interrupt enable (should be 0)
+#define TWEN_offset (2) //TWI enable. Must be 1 during entire TWI communcation
+#define TWWC_offset (3)  //write collision
+#define TWSTO_offset (4) //Stop Condition bit
+#define TWSTA_offset (5) //Start Condition bit
+#define TWEA_offset (6)  //Enable Acknowledge bit
+#define TWINT_offset (7) //indicates that it is clear to send next command, write to TWCR then write 1 to this bit, next command ready when this bit is set again. 
+
 #define Prescale_1 (0)
 #define Prescale_4 (1)
 #define Prescale_16 (2)
