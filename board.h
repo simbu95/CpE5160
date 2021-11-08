@@ -36,4 +36,7 @@
 #define CHIP_SELECT_PORT _SFR_MEM8 (0x23) //Pin B
 #define CHIP_SELECT_PIN (1<<4)
 
+#define TWI0 _SFR_MEM8(0xB8)
+#define TWI1 _SFR_MEM8(0xD8)
+
 #endif
