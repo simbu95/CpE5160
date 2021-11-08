@@ -18,7 +18,15 @@
 #define Prescale_16 (2)
 #define Prescale_64 (3)
 
-uint8_t TWI_Master_Transmit (uint8_t volatile *I2C_adr, uint32_t I2C_freq){
+uint8_t TWI_Master_Transmit (uint8_t volatile *I2C_adr, uint8_t device_addr, uint32_t int_addr, uint8_t int_addr_sz, uint16_t num_bytes, uint8_t * array_name){
+	
+}
+
+uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint32_t int_addr, uint8_t int_addr_sz, uint16_t num_bytes, uint8_t * array_name ){
+	
+}
+
+uint8_t TWI_Master_Init(uint8_t volatile *I2C_adr, uint32_t I2C_freq){
 	uint8_t pre = ( ((F_CPU/F_DIV) / (I2C_freq)) -16UL ) / (510UL); //simplified some terms. 
 	if(pre <1){ //double check the result of the integer division. If it rounds down, we can't use <=. if it doesn't round down we need <=. (though should still be fine?)
 		*(I2C_adr+TWSR)=Prescale_1;
@@ -40,12 +48,5 @@ uint8_t TWI_Master_Transmit (uint8_t volatile *I2C_adr, uint32_t I2C_freq){
 		return 0; //error, freq too low. 
 	}
 	*(I2C_adr+TWBR) = ( ((F_CPU/F_DIV) / (I2C_freq)) -16UL ) / (2UL * pre);
-}
-
-uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint32_t int_addr, uint8_t int_addr_sz, uint16_t num_bytes, uint8_t * array_name ){
-	
-}
-
-uint8_t TWI_Master_Init(uint8_t volatile *I2C_adr, uint32_t I2C_freq){
-	
+	return 1;
 }
