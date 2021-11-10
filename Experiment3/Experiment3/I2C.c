@@ -100,6 +100,7 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 	uint8_t return_val = 0;
 	
 	if(int_addr_sz > 0){
+		//Can this just be TWI Master Transmit? I think it should be the same, as we are writing the internal address, then doing a read, right?
 		//create start condition
 		*(I2C_adr+TWC_REG)= (1<<TWINT_offset)|(1<<TWSTA_offset)|(1<<TWEN_offset);
 		
@@ -180,6 +181,9 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 	//check status register
 	temp_status = *(I2C_adr+TWS_REG) & 0xF8;
 	
+	// I think this could flow better.... something like num=num bytes
+	//while num_bytes != 1 do no stop
+	//num bytes ==1 do stop byte and end. 
 	if(temp_status = 0x40){ //slave address + R sent, ACK received
 		if(num_bytes == 1){
 			*(I2C_adr+TWC_REG) = ((1<<TWINT_offset)|(0<<TWEA_offset)|(1<<TWEN_offset));
