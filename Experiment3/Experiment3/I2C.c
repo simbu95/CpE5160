@@ -40,7 +40,7 @@ uint8_t TWI_Master_Transmit (uint8_t volatile *I2C_adr, uint8_t device_addr, uin
 	//wait for start condition to be transmitted
 	do{
 		temp_status = *(I2C_adr+TWC_REG);
-	}while(temp_status & (1<<TWINT_offset) == 0);
+	}while((temp_status & (1<<TWINT_offset)) == 0);
 	
 	if(temp_status == 0x08){ //start bit sent
 		//send the device address
@@ -50,7 +50,7 @@ uint8_t TWI_Master_Transmit (uint8_t volatile *I2C_adr, uint8_t device_addr, uin
 		//wait for device address to be sent
 		do{
 			temp_status = *(I2C_adr+TWC_REG);
-		}while(temp_status & (1<<TWINT_offset) == 0);
+		}while((temp_status & (1<<TWINT_offset)) == 0);
 		
 		//check for ACK from sending device address
 		temp_status = *(I2C_adr+TWS_REG) & 0xF8;
@@ -68,7 +68,7 @@ uint8_t TWI_Master_Transmit (uint8_t volatile *I2C_adr, uint8_t device_addr, uin
 			//wait for internal address index to transmit
 			do{
 				temp_status = *(I2C_adr+TWC_REG);
-			}while(temp_status & (1<<TWINT_offset) == 0);
+			}while( (temp_status & (1<<TWINT_offset)) == 0);
 		}
 		
 		*(I2C_adr+TWC_REG) = ((1<<TWINT_offset)|(1<<TWEA_offset)|(1<<TWEN_offset));
@@ -91,6 +91,7 @@ uint8_t TWI_Master_Transmit (uint8_t volatile *I2C_adr, uint8_t device_addr, uin
 	else{ //start bit not sent
 		return 1;
 	}
+	return 0;
 }
 
 uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint32_t int_addr, uint8_t int_addr_sz, uint16_t num_bytes, uint8_t * array_name ){
@@ -107,7 +108,7 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 		//wait for start condition to be transmitted
 		do{
 			temp_status = *(I2C_adr+TWC_REG);
-		}while(temp_status & (1<<TWINT_offset) == 0);
+		}while((temp_status & (1<<TWINT_offset)) == 0);
 		
 		//confirm status start has been sent
 		temp_status = *(I2C_adr+TWS_REG) & 0xF8;
@@ -122,7 +123,7 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 		//wait for device address to be sent
 		do{
 			temp_status = *(I2C_adr+TWC_REG);
-		}while(temp_status & (1<<TWINT_offset) == 0);
+		}while((temp_status & (1<<TWINT_offset)) == 0);
 		
 		//check for ACK from sending device address
 		temp_status = *(I2C_adr+TWS_REG) & 0xF8;
@@ -140,13 +141,13 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 			//wait for internal address index to transmit
 			do{
 				temp_status = *(I2C_adr+TWC_REG);
-			}while(temp_status & (1<<TWINT_offset) == 0);
+			}while((temp_status & (1<<TWINT_offset)) == 0);
 		}
 		
 		*(I2C_adr+TWC_REG) = ((1<<TWINT_offset)|(1<<TWEA_offset)|(1<<TWEN_offset));
 		do{
 			temp_status = *(I2C_adr+TWC_REG);
-		}while(temp_status & (1<<TWINT_offset) == 0);
+		}while((temp_status & (1<<TWINT_offset)) == 0);
 		
 		//check for ACK from sending internal address
 		temp_status = *(I2C_adr+TWS_REG) & 0xF8;
@@ -161,7 +162,7 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 	//wait for start condition to be transmitted
 	do{
 		temp_status = *(I2C_adr+TWC_REG);
-	}while(temp_status & (1<<TWINT_offset) == 0);
+	}while((temp_status & (1<<TWINT_offset)) == 0);
 	
 	//confirm status start has been sent
 	temp_status = *(I2C_adr+TWS_REG) & 0xF8;
@@ -176,7 +177,7 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 	//wait for device address to be sent
 	do{
 		temp_status = *(I2C_adr+TWC_REG);
-	}while(temp_status & (1<<TWINT_offset) == 0);
+	}while((temp_status & (1<<TWINT_offset)) == 0);
 	
 	//check status register
 	temp_status = *(I2C_adr+TWS_REG) & 0xF8;
@@ -184,7 +185,7 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 	// I think this could flow better.... something like num=num bytes
 	//while num_bytes != 1 do no stop
 	//num bytes ==1 do stop byte and end. 
-	if(temp_status = 0x40){ //slave address + R sent, ACK received
+	if(temp_status == 0x40){ //slave address + R sent, ACK received
 		if(num_bytes == 1){
 			*(I2C_adr+TWC_REG) = ((1<<TWINT_offset)|(0<<TWEA_offset)|(1<<TWEN_offset));
 		}
@@ -196,11 +197,11 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 		while((num_bytes != 0) && (return_val == 0)){
 			do{
 				temp_status = *(I2C_adr+TWC_REG);
-			} while ((temp_status & 0x80) = 0);
+			} while ((temp_status & 0x80) == 0);
 		
 			temp_status = *(I2C_adr+TWS_REG) & 0xF8;
 			
-			if(temp_status = 0x50){ //data byte received, ACK sent
+			if(temp_status == 0x50){ //data byte received, ACK sent
 				num_bytes--;
 				array_name[index] = *(I2C_adr+TWD_REG);
 				index++;
@@ -211,7 +212,7 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 					*(I2C_adr+TWC_REG) = ((1<<TWINT_offset)|(1<<TWEA_offset)|(1<<TWEN_offset));
 				}
 			}
-			else if(temp_status = 0x58){ //data byte received, NACK sent
+			else if(temp_status == 0x58){ //data byte received, NACK sent
 				num_bytes--;
 				array_name[index] = *(I2C_adr+TWD_REG);
 				*(I2C_adr+TWC_REG) = ((1<<TWINT_offset)|(1<<TWSTO_offset)|(1<<TWEN_offset));
@@ -219,7 +220,7 @@ uint8_t TWI_Master_Receive(uint8_t volatile *I2C_adr, uint8_t device_addr, uint3
 				//stop condition
 				do{
 					temp_status = *(I2C_adr+TWC_REG);
-				}while(temp_status & (1<<TWSTO_offset) == 1);
+				}while((temp_status & (1<<TWSTO_offset)) == 1);
 				
 			}
 			else{ //data not received
