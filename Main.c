@@ -7,7 +7,7 @@
 
 #include <avr/io.h>
 #include <avr/pgmspace.h>
-#include <xc.h>
+//#include <xc.h>
 
 #include "board.h"
 
@@ -21,11 +21,14 @@
 #include "print_memory.h"
 #include "SD_Card.h"
 #include "SPI.h"
+#include "I2C.h"
 #include "Long_Serial_In.h"
+#include "MP3Decoder.h"
 
 
 const char myString[66] PROGMEM = "This program was created by Dustin Tanksley and Preston Misemer\n\r";
-const char Init[23] PROGMEM = "Initializing SD Card\n\r";
+const char Init_SD[23] PROGMEM = "Initializing SD Card\n\r";
+const char Init_MP3[30] PROGMEM = "Initializing MP3 Decoder\n\r";
 const char Failed[20] PROGMEM = "Failed\n\r";
 const char Success[34] PROGMEM = "Init Succeeded, Reading Block 0\n\r";
 const char Enter[33] PROGMEM = "Enter the block number to read\n\r";
@@ -33,70 +36,45 @@ const char Enter[33] PROGMEM = "Enter the block number to read\n\r";
 int main(void)
 {
 	
-	char print_char=0x55;
 	char* print_buffer = Export_print_buffer();
-	uint8_t buffer[512];
-	uint32_t block;
-	bool retval;
+	uint8_t buf[3];
+	uint8_t* buffer=&buf[0];
 	uint8_t n;
 	
+	GPIO_Output_Init(&PINB,0x02);
+	GPIO_Output_Clear(&PINB,0x02);
+	_delay_ms(100);
+	GPIO_Output_Set(&PINB,0x02);
+	_delay_ms(100);
+	
 	UART_Init(&UART1,9600UL,8,0,1);
-	
-	n = sprintf(print_buffer, "Testing character is %c\n\r", print_char);
+
+	n = Copy_String_to_Buffer(myString, 0, print_buffer); 
 	UART_Transmit_String(&UART1, n, print_buffer);
 
-	n = Copy_String_to_Buffer(myString, 0, print_buffer); // If I don't manually enter the length, it tends to grab other strings as well. 
+	n = Copy_String_to_Buffer(Init_MP3, 0, print_buffer);
 	UART_Transmit_String(&UART1, n, print_buffer);
 
-	n = Copy_String_to_Buffer(Init, 0, print_buffer);
+	n=TWI_Master_Init(&TWI1,16000UL);
+	
+	n=TWI_Master_Receive(&TWI1,0x4F,0,0,2,buffer);
+	
+	n = sprintf(print_buffer, "Temp is %d\n\r", buf[0]);
 	UART_Transmit_String(&UART1, n, print_buffer);
-
-	SPI0_Init(400000UL); //Init SPI 0
-
-	retval = SD_Card_Init(&SPI0); //Init SD CARD
-	if (retval) {  //If init successful
-		_delay_ms(2000);
-		n = Copy_String_to_Buffer(Success, 0, print_buffer);
-		UART_Transmit_String(&UART1, n, print_buffer);
-		GPIO_Output_Clear(&CHIP_SELECT_PORT, CHIP_SELECT_PIN);
-		Send_Command(&SPI0, 17, 0x00);  //Read Block 0, and print
-		
-		Read_Block(&SPI0, 512, buffer);
-		GPIO_Output_Set(&CHIP_SELECT_PORT, CHIP_SELECT_PIN);
-
-		print_memory(&UART1, 512, buffer);
-	}
-	else {  //Else, Indicate failure to init
-		n = Copy_String_to_Buffer(Failed, 0, print_buffer);
-		UART_Transmit_String(&UART1, n, print_buffer);
-	}
 	
+	_delay_ms(2000);
 	
-
+	n=TWI_Master_Receive(&TWI1,0x43,0x01,1,1,buffer);
+	
+	n = sprintf(print_buffer, "ID is %d\n\r", buf[0]);
+	UART_Transmit_String(&UART1, n, print_buffer);
+	
+	_delay_ms(2000);
+	
+	MP3_Decoder_Config_File(&TWI1);
+	
 	while(1)
     {
-		n = Copy_String_to_Buffer(Enter, 0, print_buffer);
-		UART_Transmit_String(&UART1, n, print_buffer);
-		
-		block=long_serial_input(&UART1);  //Ask User for block number
-		n=sprintf(print_buffer, "%ld\n\r", block);
-		UART_Transmit_String(&UART1, n, print_buffer);
-		
-		n = sprintf(print_buffer, "Printing block %ld\n\r", block);
-		UART_Transmit_String(&UART1, n, print_buffer);
-		
-		GPIO_Output_Clear(&CHIP_SELECT_PORT, CHIP_SELECT_PIN);
-		Send_Command(&SPI0, 17, block); //Send CMD 17, read single block, with argument for received block number
-		
-		n=Read_Block(&SPI0, 512, buffer);
-		GPIO_Output_Set(&CHIP_SELECT_PORT, CHIP_SELECT_PIN);
-		if(n!=0){
-			n = Copy_String_to_Buffer(Failed, 0, print_buffer);
-			UART_Transmit_String(&UART1, n, print_buffer);
-		}
-		else{
-			print_memory(&UART1, 512, buffer); //Print out contents of block. 
-		}
 		
 
 		

@@ -69,7 +69,7 @@ uint8_t Receive_Response(uint8_t volatile *SPI_adr, uint8_t num_of_bytes, uint8_
 
 bool SD_Card_Init(uint8_t volatile *SPI_adr){
 	uint8_t Response_Array[5];
-	uint8_t * Response_Pointer = &Response_Array;
+	uint8_t * Response_Pointer = &Response_Array[0];
 	uint8_t error_flag;
 	uint8_t n;
 	char* print_buffer = Export_print_buffer();
@@ -197,8 +197,8 @@ uint8_t Read_Block(uint8_t volatile *SPI_adr, uint16_t num_of_bytes, uint8_t * a
 		array_name[i] = SPI_Transfer(SPI_adr, 0xFF, &error_flag);
 		if (error_flag != no_errors) { return error_flag; }
 	}
-	uint8_t check1 = SPI_Transfer(SPI_adr, 0xFF, &error_flag); //could checksum if wanted... 
-	uint8_t check2 = SPI_Transfer(SPI_adr, 0xFF, &error_flag);
+	SPI_Transfer(SPI_adr, 0xFF, &error_flag); //could checksum if wanted... 
+	SPI_Transfer(SPI_adr, 0xFF, &error_flag);
 	SPI_Transfer(SPI_adr, 0xFF, &error_flag);// One more transfer to finish communication. 
 	return error_flag; //Read block completed
 }

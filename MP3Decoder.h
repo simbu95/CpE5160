@@ -4,7 +4,7 @@
 #include <avr/io.h>
 #include "util/delay.h"
 
-uint8_t Config_File (uint8_t volatile *I2C_adr);
+uint8_t MP3_Decoder_Config_File (uint8_t volatile *I2C_adr);
 
 
 
