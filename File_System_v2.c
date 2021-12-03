@@ -198,77 +198,48 @@ uint8_t Open_File(uint32_t Cluster_num, uint8_t * array_in)
 	uint16_t first_sector;
 	uint8_t user_input;
 	char * string_p = Export_print_buffer();
-	uint16_t sector_index;
+	uint16_t sector_index=0;
 	
+	
+	first_sector = First_Sector(Cluster_num);
+	Read_Sector(first_sector, FAT_Param->BytesPerSec, array_in);
+	print_memory(&UART1, FAT_Param->BytesPerSec, array_in);
 	while(1){
-		first_sector = First_Sector(Cluster_num);
-		Read_Sector(first_sector, FAT_Param->BytesPerSec, array_in);
-		print_memory(&UART1, FAT_Param->BytesPerSec, array_in);
-		
-		sector_index = 60;
-		while(sector_index < FAT_Param->SecPerClus)
-		{
-			sprintf(string_p, "Continue to next sector? (y/n): ");
-			UART_Transmit_String(&UART1, 0, string_p);
-			user_input = UART_Receive(&UART1);
-			UART_Transmit(&UART1, user_input);
-			UART_Transmit(&UART1, '\n');
-			UART_Transmit(&UART1, '\r');
-			
-			if (user_input== 'n'){
-				return 0;
-			}
-			
-			else if(user_input == 'y') {
-				Read_Sector((first_sector + sector_index), FAT_Param->BytesPerSec, array_in);
-				print_memory(&UART1, FAT_Param->BytesPerSec, array_in);
-				
-				sector_index++;
-			}
-			else {
-				sprintf(string_p, "Invalid selection.\r\n");
-				UART_Transmit_String(&UART1, 0, string_p);
-			}
-		}
-	
-		sprintf(string_p, "Continue to next cluster? (y/n): ");
+		sprintf(string_p, "Continue to next sector? (y/n): ");
 		UART_Transmit_String(&UART1, 0, string_p);
 		user_input = UART_Receive(&UART1);
 		UART_Transmit(&UART1, user_input);
 		UART_Transmit(&UART1, '\n');
 		UART_Transmit(&UART1, '\r');
-	
-		while(user_input != 'y' && user_input != 'n') {
-			sprintf(string_p, "Invalid selection.\r\nContinue to next cluster? (y/n): ");
-			UART_Transmit_String(&UART1, 0, string_p);
-			user_input = UART_Receive(&UART1);
-			UART_Transmit(&UART1, user_input);
-			UART_Transmit(&UART1, '\n');
-			UART_Transmit(&UART1, '\r');
-		}
-	
-		if(user_input == 'n'){
+		if (user_input== 'n'){
 			return 0;
 		}
 		else if(user_input == 'y') {
-			Cluster_num = Find_Next_Clus(Cluster_num, array_in);
-		
-			if(Cluster_num == 0xFFFFFFFF) {
-				sprintf(string_p, "End of file reached.\r\n");
-				UART_Transmit_String(&UART1, 0, string_p);
-				return 0;
+			sector_index++;
+			if(sector_index>=FAT_Param->SecPerClus){
+				Cluster_num = Find_Next_Clus(Cluster_num, array_in);
+				if(Cluster_num == 0xFFFFFFFF) {
+					sprintf(string_p, "End of file reached.\r\n");
+					UART_Transmit_String(&UART1, 0, string_p);
+					return 0;
+				}
+				else if(Cluster_num == 0x00000000) {
+					sprintf(string_p, "Error: Unused Cluster.\r\n");
+					UART_Transmit_String(&UART1, 0, string_p);
+					return 1;
+				}
+				first_sector = First_Sector(Cluster_num);
 			}
-			else if(Cluster_num == 0x00000000) {
-				sprintf(string_p, "Error: Unused Cluster.\r\n");
-				UART_Transmit_String(&UART1, 0, string_p);
-				return 1;
-			}
+			Read_Sector((first_sector + sector_index), FAT_Param->BytesPerSec, array_in);
+			print_memory(&UART1, FAT_Param->BytesPerSec, array_in);
+			
+			
 		}
 		else {
-			return 1;
+			sprintf(string_p, "Invalid selection.\r\n");
+			UART_Transmit_String(&UART1, 0, string_p);
 		}
 	}
-	
 	return 0;
 }
 
