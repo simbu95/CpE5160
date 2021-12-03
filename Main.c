@@ -1,83 +1,183 @@
 /*
- * main.c
+ * UART_solution_struct.c
  *
- * Created: 9/23/2021 3:35:07 PM
- *  Author: dt7c9
+ * Created: 10/5/2021 3:06:09 PM
+ * Author : ryoun
  */ 
 
 #include <avr/io.h>
-#include <avr/pgmspace.h>
-//#include <xc.h>
-
-#include "board.h"
-
-#include <stdio.h>
-#include <stdbool.h> 
-#include "util/delay.h"
-
-#include "gpio.h"
+#include "board_struct.h"
+#include "Control_Outputs.h"
 #include "UART.h"
+#include <util/delay.h>
+#include <avr/pgmspace.h>
 #include "UART_Print.h"
 #include "print_memory.h"
-#include "SD_Card.h"
-#include "SPI.h"
-#include "I2C.h"
 #include "Long_Serial_In.h"
-#include "MP3Decoder.h"
+#include <stdio.h>
+#include "SPI.h"
+#include "SDCard.h"
+#include "OLED.h"
+#include "Directory_Functions_struct.h"
+#include "File_System_v2.h"
+#include "Read_Sector.h"
 
 
-const char myString[66] PROGMEM = "This program was created by Dustin Tanksley and Preston Misemer\n\r";
-const char Init_SD[23] PROGMEM = "Initializing SD Card\n\r";
-const char Init_MP3[30] PROGMEM = "Initializing MP3 Decoder\n\r";
-const char Failed[20] PROGMEM = "Failed\n\r";
-const char Success[34] PROGMEM = "Init Succeeded, Reading Block 0\n\r";
-const char Enter[33] PROGMEM = "Enter the block number to read\n\r";
+const char test_string[28] PROGMEM = {"SD Initialization Program\n\r\0"};
+const char LSI_Prompt[16] PROGMEM = {"Enter block #: "};
+const char Complete[9] PROGMEM = {"  OK!\n\r\0"};
+const char High_Cap[15] PROGMEM = {"High Capacity\0"};
+const char Stnd_Cap[19] PROGMEM = {"Standard Capacity\0"};
+	
+uint8_t buffer1_g[512];
+uint8_t buffer2_g[512];
 
 int main(void)
 {
+	//
+	//
+	/* Provided Code Block */
+	//
+	//
 	
-	char* print_buffer = Export_print_buffer();
-	uint8_t buf[3];
-	uint8_t* buffer=&buf[0];
-	uint8_t n;
-	
-	GPIO_Output_Init(&PINB,0x02);
-	GPIO_Output_Clear(&PINB,0x02);
+	uint8_t error_flag,type;
+	uint32_t input32;
+	char *string_p;
+	GPIO_Output_Set(&LED0_port, LED0_pin);
+	GPIO_Output_Init(&LED0_port, LED0_pin);
+	UART_init(&UART1,9600);
+	string_p=Export_print_buffer();
+	Copy_String_to_Buffer(test_string,0,string_p);
+	UART_Transmit_String(&UART1,0,string_p);
+	GPIO_Output_Clear(&LED0_port, LED0_pin);
 	_delay_ms(100);
-	GPIO_Output_Set(&PINB,0x02);
-	_delay_ms(100);
+	GPIO_Output_Set(&LED0_port, LED0_pin);
+	error_flag=SPI_Master_Init(&SPI0,400000);
+	if(error_flag!=no_errors)
+	{
+		while(1);
+	}
+	OLED_Init(&OLED_SPI_Port);
+	OLED_Set_Line_0 (&OLED_SPI_Port);
+	Copy_String_to_Buffer(test_string,0,string_p);
+	OLED_Transmit_String(&OLED_SPI_Port,7,string_p);
+	error_flag=SD_Card_Init(&SD_Card_Port);
+	if(error_flag!=no_errors)
+	{
+		while(1);
+	}
+	error_flag=SPI_Master_Init(&SPI0,10000000);
+	Copy_String_to_Buffer(Complete,0,string_p);
+	OLED_Transmit_String(&OLED_SPI_Port,5,string_p);
+	OLED_Set_Line_1 (&OLED_SPI_Port);
+	type=Return_SD_Card_Type();
+	if(type==Standard_Capacity)
+	{
+		Copy_String_to_Buffer(Stnd_Cap,0,string_p);
+		OLED_Transmit_String(&OLED_SPI_Port,0,string_p);
+	}
+	else
+	{
+		Copy_String_to_Buffer(High_Cap,0,string_p);
+		OLED_Transmit_String(&OLED_SPI_Port,0,string_p);
+	}
+	GPIO_Output_Set(&LED0_port, LED0_pin);
 	
-	UART_Init(&UART1,9600UL,8,0,1);
-
-	n = Copy_String_to_Buffer(myString, 0, print_buffer); 
-	UART_Transmit_String(&UART1, n, print_buffer);
-
-	n = Copy_String_to_Buffer(Init_MP3, 0, print_buffer);
-	UART_Transmit_String(&UART1, n, print_buffer);
-
-	n=TWI_Master_Init(&TWI1,16000UL);
+	//
+	//
+	/* End of Provided Code Block */
+	//
+	//
 	
-	n=TWI_Master_Receive(&TWI1,0x4F,0,0,2,buffer);
+	Read_Sector(0,512,buffer1_g);
+	uint32_t BPB = read8(0,buffer1_g);
 	
-	n = sprintf(print_buffer, "Temp is %d\n\r", buf[0]);
-	UART_Transmit_String(&UART1, n, print_buffer);
-	
-	_delay_ms(2000);
-	
-	n=TWI_Master_Receive(&TWI1,0x43,0x01,1,1,buffer);
-	
-	n = sprintf(print_buffer, "ID is %d\n\r", buf[0]);
-	UART_Transmit_String(&UART1, n, print_buffer);
-	
-	_delay_ms(2000);
-	
-	MP3_Decoder_Config_File(&TWI1);
-	
-	while(1)
-    {
+	if(BPB == 0xEB || BPB == 0xE9){
+		BPB=0;
+		error_flag=Mount_Drive(buffer1_g);
+	}
+	else{
+		BPB=read32(0x01C6,buffer1_g);
+		Read_Sector(BPB,512,buffer1_g);
+		error_flag=Mount_Drive(buffer1_g);
+	}
+	FS_values_t * FAT_Param = Export_Drive_values();
+	if(error_flag==No_Disk_Error){
 		
-
+		sprintf(string_p," BPB is %lu \n\r",BPB);
+		UART_Transmit_String(&UART1,0,string_p);
 		
-    }
+		sprintf(string_p," First Data Sector is %lu \n\r",FAT_Param->FirstDataSec);
+		UART_Transmit_String(&UART1,0,string_p);
+		
+		sprintf(string_p," Start of FAT is %lu \n\r",FAT_Param->StartofFAT);
+		UART_Transmit_String(&UART1,0,string_p);
+		uint16_t t = read16(0x0E, buffer1_g);
+		sprintf(string_p," Rsvd Sec Cnt is %d \n\r", t);
+		UART_Transmit_String(&UART1,0,string_p);
+		
+		//Print_Directory(FAT_Param->FirstDataSec,buffer1_g);
+		sprintf(string_p," Sectors per cluster is %d \n\r",FAT_Param->SecPerClus);
+		UART_Transmit_String(&UART1,0,string_p);
+		
+		
+	}
+	else{
+		sprintf(string_p,"Error Mounting Disk");
+		UART_Transmit_String(&UART1,0,string_p);
+	}
+	
+	
+	uint32_t DataSec=FAT_Param->FirstDataSec;
+	while (1)
+	{
+		/*Copy_String_to_Buffer(LSI_Prompt,0,string_p);
+		UART_Transmit_String(&UART1,0,string_p);
+		input32=long_serial_input(&UART1);
+		sprintf(string_p," %lu \n\r",input32);
+		UART_Transmit_String(&UART1,0,string_p);
+		GPIO_Output_Clear(&LED0_port, LED0_pin);
+		GPIO_Output_Clear(&SD_CS_Port,SD_CS_Pin);  // Clear nCS = 0
+		Send_Command(&SD_Card_Port,17,input32);
+		Read_Block(&SD_Card_Port,512,buffer1_g);
+		GPIO_Output_Set(&LED0_port, LED0_pin);
+		GPIO_Output_Set(&SD_CS_Port,SD_CS_Pin);  // Set nCS = 1
+		print_memory(&UART1,512,buffer1_g);
+		*/
+		
+		//Directory_Printing(FAT_Param->FirstDataSec,FAT_Param);
+		
+		Print_Directory(DataSec,buffer1_g);
+		
+		//Prompt for directory
+		Copy_String_to_Buffer(LSI_Prompt,0,string_p);
+		UART_Transmit_String(&UART1,0,string_p);
+		input32=long_serial_input(&UART1);
+		sprintf(string_p," %lu \n\r",input32);
+		UART_Transmit_String(&UART1,0,string_p);
+		
+		input32=Read_Dir_Entry(DataSec, (uint16_t) input32, buffer1_g);
+		
+		
+		//if directory, then Recursive go down
+		if((input32 & 0x10000000) != 0){
+			sprintf(string_p," %lu \n\r",input32 & 0x0FFFFFFF);
+			UART_Transmit_String(&UART1,0,string_p);
+			if((input32 & 0x0FFFFFFF) == 0){
+				DataSec=FAT_Param->FirstDataSec;
+			}
+			else{
+				DataSec=First_Sector(input32 & 0x0FFFFFFF);
+			}
+		}
+		//if file, then call Open File Function
+		else{
+			Open_File(input32,buffer1_g);
+		}
+		
+		
+	}
 }
+
+
 

@@ -1,120 +1,239 @@
-/*
- * SPI.c
- *
- * Created: 10/13/2021 12:16:57 PM
- *  Author: pqmf44
- */ 
+
 #include <avr/io.h>
-#include "board.h"
+#include "board_struct.h"
 #include "SPI.h"
-#include "gpio.h"
+#include "Control_Outputs.h"
 
-#define SPI_Enable (1<<SPE_OFFSET)
-#define SPI_Disable (0<<SPE_OFFSET)
+/* SPCR Settings and Bits */
+#define SPI_Interrupt_Enable (1<<7)
+#define SPI_Enable (1<<6)
+#define lsb_First (0<<5)
+#define msb_First (1<<5)
+#define Master_Mode (1<<4)
+#define Slave_Mode (0<<4)
+#define CPOL_0 (0)
+#define CPOL_1 (1)
+#define CPHA_First_Edge (0)
+#define CPHA_Second_Edge (1)
+#define FOSC_4 (0<<0)
+#define FOSC_16 (1<<0)
+#define FOSC_64 (2<<0)
+#define FOSC_128 (3<<0)
+/* SPSR Settings and Bits */
+#define FOSCx2 (1<<0)
+#define FOSCx1 (0<<0)
+#define SPI_Flag (1<<7)
+#define WCOL_Flag (1<<6)
+/* CPOL and CPHA selections */
+#define CPOL_select (CPOL_0)
+#define CPHA_select (CPHA_First_Edge)
 
-#define Master_Mode (1<<MSTR_OFFSET)
-#define Slave_Mode (0<<MSTR_OFFSET)
 
-#define CPOL_VAL (CPOL_bit<<CPOL_OFFSET)
+/***********************************************************************
+DESC:    Sets up the SPI to master mode with the clock as close
+         to the input parameter as possible.
+         clock=32-bit 
+RETURNS: Error Flag
+CAUTION: Sets the CPHA to 0 and CPOL to 0
+         Disables SS and sets master mode 
+************************************************************************/
 
-// When data is sampled
-#define CPHA_VAL (CPHA_bit<<CPHA_OFFSET)
-
-#define Base_div_2 (0)
-#define Base_div_8 (1)
-#define Base_div_32 (2)
-#define Base_div_64 (3)
-
-#define Double_div (0)
-#define No_Double (1)
-
-
-void SPI0_Init(uint32_t clock_rate){
-	//Init DDR for Master out, clock, and chip select. For SPI0 these are all on the same port B.
-	GPIO_Output_Init(&MOSI0_PORT, MOSI0_PIN | SCK0_PIN | CHIP_SELECT_PIN );
-	GPIO_Output_Set(&MOSI0_PORT, MOSI0_PIN | CHIP_SELECT_PIN);
-	if(CPOL_bit==1){  //Set clock based on Clock polarity bit
-		GPIO_Output_Set(&SCK0_PORT,SCK0_PIN);
-	}
-	else{
-		GPIO_Output_Clear(&SCK0_PORT,SCK0_PIN);
-	}
-	SPI_Init(&SPI0,clock_rate); //Call init for SPI 0 with specified Clock rate
-}
-
-void SPI_Init(uint8_t volatile * SPI_addr, uint32_t clock_rate)
+uint8_t SPI_Master_Init(volatile SPI_t *SPI_addr, uint32_t clock_rate)
 {
-	uint8_t div = (uint8_t)( (F_CPU/OSC_DIV)/(clock_rate) ); //Calculate clock rate
-	uint8_t control_reg = SPI_Enable | Master_Mode | CPOL_VAL | CPHA_VAL;
-	uint8_t status_reg = 0;
-	
-	if(div < 2) //Make sure division is high enough so  clock rate is slower then the value specified. 
-	{
-		control_reg |= Base_div_2;
-		status_reg  |= No_Double;
-	}
-	else if(div < 4)
-	{
-		control_reg |= Base_div_2;
-		status_reg |= Double_div;
-	}
-	else if(div < 8)
-	{
-		control_reg |= Base_div_8;
-		status_reg |= No_Double;
-	}
-	else if(div < 16)
-	{
-		control_reg |= Base_div_8;
-		status_reg |= Double_div;
-	}
-	else if(div < 32)
-	{
-		control_reg |= Base_div_32;
-		status_reg |= No_Double;
-	}
-	else if(div < 64)
-	{
-		control_reg |= Base_div_32;
-		status_reg |= Double_div;
-	}
-	else if(div < 128)
-	{
-		control_reg |= Base_div_64;
-		status_reg |= No_Double;
-	}
-	else
-	{
-		//throw error
-	}
-	
-	*(SPI_addr+SPCR)=control_reg; //Write to registers with completed values. 
-	*(SPI_addr+SPSR)=status_reg;
-	
+  uint8_t divider,return_val;
+  
+  return_val=no_errors;
+  divider=(uint8_t)((F_CPU/OSC_DIV)/clock_rate);
+  if(divider<=2)
+  {
+	 (SPI_addr->SPCR)=((SPI_Enable)|(Master_Mode)|(CPOL_select<<CPOL)|(CPHA_select<<CPHA)|(FOSC_4));
+	 (SPI_addr->SPSR)=FOSCx2;
+  }
+  else if((divider>2)&&(divider<=4))
+  {
+	 (SPI_addr->SPCR)=((SPI_Enable)|(CPOL_select<<CPOL)|(CPHA_select<<CPHA)|(Master_Mode)|(FOSC_4));
+	 (SPI_addr->SPSR)=FOSCx1;
+  }
+  else if((divider>4)&&(divider<=8))
+  {
+	 (SPI_addr->SPCR)=((SPI_Enable)|(Master_Mode)|(CPOL_select<<CPOL)|(CPHA_select<<CPHA)|(FOSC_16));
+	 (SPI_addr->SPSR)=FOSCx2;
+  }
+  else if((divider>8)&&(divider<=16))
+  {
+	 (SPI_addr->SPCR)=((SPI_Enable)|(Master_Mode)|(CPOL_select<<CPOL)|(CPHA_select<<CPHA)|(FOSC_16));
+	 (SPI_addr->SPSR)=FOSCx1;
+  } 
+  else if((divider>16)&&(divider<=32))
+  {
+	 (SPI_addr->SPCR)=((SPI_Enable)|(Master_Mode)|(CPOL_select<<CPOL)|(CPHA_select<<CPHA)|(FOSC_64));
+	 (SPI_addr->SPSR)=FOSCx2;
+  }
+  else if((divider>32)&&(divider<=64))
+  {
+	 (SPI_addr->SPCR)=((SPI_Enable)|(Master_Mode)|(CPOL_select<<CPOL)|(CPHA_select<<CPHA)|(FOSC_64));
+	 (SPI_addr->SPSR)=FOSCx1;
+  }
+  else if((divider>64)&&(divider<=128))
+  {
+	 (SPI_addr->SPCR)=((SPI_Enable)|(Master_Mode)|(CPOL_select<<CPOL)|(CPHA_select<<CPHA)|(FOSC_128));
+	 (SPI_addr->SPSR)=FOSCx1;
+  }
+  else  // if the SPI clock rate is too slow, a divider cannot be found
+  {
+    return_val=illegal_clockrate;
+  }
+  if(SPI_addr==&SPI0)
+  {
+	  // Set Port B pins for SPI
+	  GPIO_Output_Init(&PB,((1<<7)|(1<<5)));  // Set MOSI and SCK as outputs
+	  if(CPOL_select==CPOL_0)
+	  {
+		  GPIO_Output_Clear(&PB,(1<<7));
+	  }
+	  else
+	  {
+		  GPIO_Output_Set(&PB,(1<<7));
+	  }
+  }
+  else if(SPI_addr==&SPI1)
+  {
+	  // Set
+	  GPIO_Output_Init(&PD,(1<<7));  // Set MOSI and SCK as outputs
+	  GPIO_Output_Init(&PE,(1<<3));
+	  if(CPOL_select==CPOL_0)
+	  {
+		  GPIO_Output_Clear(&PD,(1<<7));
+	  }
+	  else
+	  {
+		  GPIO_Output_Set(&PD,(1<<7));
+	  }
+  }
+  else
+  {
+	  return_val=illegal_port;
+  }
+  return return_val;
 }
 
-uint8_t SPI_Transfer(uint8_t volatile * SPI_adr, uint8_t send_value, uint8_t *e_flag)
+/***********************************************************************
+DESC:    Sends one byte using the SPI port and returns an error flag
+          
+RETURNS: An error flag for timeout or write collision
+
+CAUTION: Waits for the SPI transfer to be complete
+************************************************************************/
+
+
+uint8_t SPI_Transmit(volatile SPI_t *SPI_addr, uint8_t data_input)
 {
-	*(SPI_adr+SPDR)=send_value; //Load send value into data register
-	uint8_t timeout=1;
-	uint8_t status; 
-	uint8_t stat_f = (1<<WCOL_OFFSET) | (1<<SPIF_OFFSET);
-	do {
-		status = *(SPI_adr+SPSR); //Check status
-		timeout++;
-	} while ( ((status & stat_f) == 0) && (timeout != 0) ); //If status is not write collision or interrupt flag, keep checking
-	
-	if(timeout==0){  //If no flag set after too much time, error
-		*e_flag=timeout_error;
-		return 0xFF;
-	}
-	else if((status & (1<<WCOL_OFFSET)) != 0 ){ //If write collision, clear the flag by reading and set error flag.
-		*e_flag=SPI_error;
-		return *(SPI_adr+SPDR);
-	}
-	else{
-		*e_flag=no_errors; //If no errors, return recieved value. 
-		return *(SPI_adr+SPDR);
-	}
-	
+   uint8_t test, timeout;
+   timeout=0;
+   (SPI_addr->SPDR)=data_input;
+   do
+   {
+      test=(SPI_addr->SPSR);
+	  timeout++;
+   }while(((test&SPI_Flag)==0)&&(timeout!=0));
+   if(timeout!=0)
+   {
+     if((test&0x40)==0)  // no errors
+     {
+         timeout=no_errors;
+     }
+     else
+     {
+         timeout=SPI_Write_Collision;
+     }
+   }
+   else
+   {
+     timeout=SPI_TIMEOUT;
+   }
+   return timeout;
 }
+ 
+/***********************************************************************
+DESC:    Sends 0xFF using the SPI port and returns the received byte
+          
+RETURNS: received byte
+         
+CAUTION: Waits for the SPI transfer to be complete
+************************************************************************/
+
+
+uint8_t SPI_Receive(volatile SPI_t *SPI_addr, uint8_t * data_output)
+{
+   uint8_t test, timeout;
+   timeout=0;
+   (SPI_addr->SPDR)=0xFF;
+   do
+   {
+      test=(SPI_addr->SPSR);
+	  timeout++;
+   }while(((test&SPI_Flag)==0)&&(timeout!=0));
+   if(timeout!=0)
+   {
+     if((test&0x40)==0)  // no errors
+     {
+         *data_output=(SPI_addr->SPDR);
+         timeout=no_errors;
+     }
+     else
+     {
+         *data_output=0xff;
+         timeout=SPI_Write_Collision;
+     }
+   }
+   else
+   {
+     *data_output=0xff;
+     timeout=SPI_TIMEOUT;
+   }
+   return timeout;
+}
+ 
+
+
+/***********************************************************************
+DESC:    Sends one byte using the SPI port and returns the received byte
+          
+RETURNS: SPI Error Flags | received byte
+         or a timeout error
+CAUTION: Waits for the SPI transfer to be complete
+************************************************************************/
+
+
+uint8_t SPI_Transfer(volatile SPI_t *SPI_addr, uint8_t data_input, uint8_t * data_output)
+{
+   uint8_t test, timeout;
+   timeout=0;
+   (SPI_addr->SPDR)=data_input;
+   do
+   {
+      test=(SPI_addr->SPSR);
+	  timeout++;
+   }while(((test&0xC0)==0)&&(timeout!=0));
+   if(timeout!=0)
+   {
+     if((test&0x40)==0)  // no errors
+     {
+         *data_output=(SPI_addr->SPDR);
+         timeout=no_errors;
+     }
+     else
+     {
+         *data_output=0xff;
+         timeout=SPI_Write_Collision;
+     }
+   }
+   else
+   {
+     *data_output=0xff;
+     timeout=SPI_TIMEOUT;
+   }
+   return timeout;
+}
+ 
+

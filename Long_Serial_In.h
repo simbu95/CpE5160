@@ -13,8 +13,7 @@
 
 // ------ Public function prototypes -------------------------------
 
-uint32_t long_serial_input(uint8_t volatile *UART_addr);
-
+uint32_t long_serial_input(volatile UART_t * UART_addr);
 
 
 #endif

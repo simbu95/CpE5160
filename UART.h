@@ -1,18 +1,14 @@
-/*
- * UART.h
- *
- *  Author: dt7c9
- */
-#ifndef _UART_H
-#define _UART_H
 
-#include <avr/io.h>
+#ifndef  _UART_H
+#define  _UART_H
 
-//#public
 
-void UART_Init(volatile uint8_t  * uart_add, uint32_t  Baud_Rate, uint8_t bits, uint8_t parity, uint8_t stops);
-void UART_Transmit(volatile uint8_t  * uart_add, char c_to_trans);
-char UART_Receive(volatile uint8_t  * uart_add);
+
+/***** Public Function prototypes ********/
+
+void UART_init (volatile UART_t * UART_addr, uint16_t Baud_Rate);
+char UART_Transmit(volatile UART_t * UART_addr, char c);
+char UART_Receive(volatile UART_t * UART_addr);
+
 
 #endif
-

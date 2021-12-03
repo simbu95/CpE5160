@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "board.h"
+#include "board_struct.h"
 #include "Long_Serial_In.h"
 #include <stdlib.h>
 #include "UART.h"
@@ -13,7 +13,7 @@ RETURNS: unsigned long
 CAUTION: UART must be initialized first
 ************************************************************************/
 
-uint32_t long_serial_input(uint8_t volatile *UART_addr)
+uint32_t long_serial_input(volatile UART_t * UART_addr)
 {
    uint8_t index,input;
    char input_values[11];   
